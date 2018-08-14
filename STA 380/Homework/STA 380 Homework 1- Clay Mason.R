@@ -117,6 +117,7 @@ it could be detrimental to treat a healthy person")
 # •	size: the total square footage of available rental space in the building.
 # •	empl.gr: the year-on-year growth rate in employment in the building's geographic region.
 # •	Rent: the rent charged to tenants in the building, in dollars per square foot per calendar year.
+
 # •	leasing.rate: a measure of occupancy; the fraction of the building's available space currently under lease.
 # •	stories: the height of the building in stories.
 # •	age: the age of the building in years.
@@ -124,7 +125,9 @@ it could be detrimental to treat a healthy person")
 # •	class.a, class.b: indicators for two classes of building quality (the third is Class C). These are relative classifications within a specific market. Class A buildings are generally the highest-quality properties in a given market. Class B buildings are a notch down, but still of reasonable quality. Class C buildings are the least desirable properties in a given market.
 # •	green.rating: an indicator for whether the building is either LEED- or EnergyStar-certified.
 # •	LEED, Energystar: indicators for the two specific kinds of green certifications.
+
 # •	net: an indicator as to whether the rent is quoted on a ``net contract'' basis. Tenants with net-rental contracts pay their own utility costs, which are otherwise included in the quoted rental price.
+
 # •	amenities: an indicator of whether at least one of the following amenities is available on-site: bank, convenience store, dry cleaner, restaurant, retail shops, fitness center.
 # •	cd.total.07: number of cooling degree days in the building's region in 2007. A degree day is a measure of demand for energy; higher values mean greater demand. Cooling degree days are measured relative to a baseline outdoor temperature, below which a building needs no cooling.
 # •	hd.total07: number of heating degree days in the building's region in 2007. Heating degree days are also measured relative to a baseline outdoor temperature, above which a building needs no heating.
@@ -136,81 +139,361 @@ it could be detrimental to treat a healthy person")
 
 
 # The assignment
-# An Austin real-estate developer is interested in the possible economic impact of "going green" in her latest project: a new 15-story mixed-use building on East Cesar Chavez, just across I-35 from downtown. Will investing in a green building be worth it, from an economic perspective? The baseline construction costs are $100 million, with a 5% expected premium for green certification.
+# An Austin real-estate developer is interested in the possible economic impact of "going green" in her latest project: a new 15-story mixed-use building on East Cesar Chavez, just across I-35 from downtown. 
+#Will investing in a green building be worth it, from an economic perspective? 
+#The baseline construction costs are $100 million, with a 5% expected premium for green certification.
 # The developer has had someone on her staff, who's been described to her as a "total Excel guru from his undergrad statistics course," run some numbers on this data set and make a preliminary recommendation. Here's how this person described his process.
-# I began by cleaning the data a little bit. In particular, I noticed that a handful of the buildings in the data set had very low occupancy rates (less than 10% of available space occupied). I decided to remove these buildings from consideration, on the theory that these buildings might have something weird going on with them, and could potentially distort the analysis. Once I scrubbed these low-occupancy buildings from the data set, I looked at the green buildings and non-green buildings separately. The median market rent in the non-green buildings was $25 per square foot per year, while the median market rent in the green buildings was $27.60 per square foot per year: about $2.60 more per square foot. (I used the median rather than the mean, because there were still some outliers in the data, and the median is a lot more robust to outliers.) Because our building would be 250,000 square feet, this would translate into an additional $250000 x 2.6 = $650000 of extra revenue per year if we build the green building.
-# Our expected baseline construction costs are $100 million, with a 5% expected premium for green certification. Thus we should expect to spend an extra $5 million on the green building. Based on the extra revenue we would make, we would recuperate these costs in $5000000/650000 = 7.7 years. Even if our occupancy rate were only 90%, we would still recuperate the costs in a little over 8 years. Thus from year 9 onwards, we would be making an extra $650,000 per year in profit. Since the building will be earning rents for 30 years or more, it seems like a good financial move to build the green building.
+# I began by cleaning the data a little bit. In particular, I noticed that a handful of the buildings in the data set had 
+
+#very low occupancy rates (less than 10% of available space occupied). I decided to remove these buildings from consideration, on the theory that these buildings might have something weird going on with them, and could potentially distort the analysis. Once I scrubbed these low-occupancy buildings from the data set, 
+#I looked at the green buildings and non-green buildings separately. 
+
+#The median market rent in the non-green buildings was $25 per square foot per year, 
+#while the median market rent in the green buildings was $27.60 per square foot per year: 
+#about $2.60 more per square foot. (I used the median rather than the mean, because there were still some outliers in the data, and the median is a lot more robust to outliers.) 
+
+#Because our building would be 250,000 square feet, this would translate into an additional $250000 x 2.6 = $650000 of extra revenue per year if we build the green building.
+# Our expected baseline construction costs are $100 million, with a 5% expected premium for green certification. Thus we should expect to spend an extra $5 million on the green building. 
+
+#Based on the extra revenue we would make, we would recuperate these costs in $5000000/650000 = 7.7 years. 
+#Even if our occupancy rate were only 90%, we would still recuperate the costs in a little over 8 years. 
+#Thus from year 9 onwards, we would be making an extra $650,000 per year in profit. 
+#Since the building will be earning rents for 30 years or more, it seems like a good financial move to build the green building.
 # The developer listened to this recommendation, understood the analysis, and still felt unconvinced. She has therefore asked you to revisit the report, so that she can get a second opinion.
-# Do you agree with the conclusions of her on-staff stats guru? If so, point to evidence supporting his case. If not, explain specifically where and why the analysis goes wrong, and how it can be improved. (For example, do you see the possibility of confounding variables for the relationship between rent and green status?)
-# Note: this is intended mainly as an exercise in visual and numerical story-telling. Tell your story primarily in plots, and while you can run a regression model if you want, that's not the goal here. Keep it concise.
 
-
+# Do you agree with the conclusions of her on-staff stats guru? If so, point to evidence supporting his case. If not, explain specifically where and why the analysis goes wrong, and how it can be improved. 
+#(For example, do you see the possibility of confounding variables for the relationship between rent and green status?)
+# Note: this is intended mainly as an exercise in visual and numerical story-telling. 
+#Tell your story primarily in plots, and while you can run a regression model if you want, that's not the goal here. Keep it concise.
+rm(list=ls())
+library(ggplot2)
 library(mosaic)
+library(corrplot)
 
-green = read.csv('greenbuildings.csv')
+green2 = read.csv('greenbuildings.csv')
+dim(green2)
+low_occupancy_mask = green2$leasing_rate >= 10
+
+
+
+
+#remove low occ rentals
+green = green2[low_occupancy_mask,]
 summary(green)
+dim(green)
+
+
+
+#Examine analyst 10% occupancy rate comment
+#very low occupancy rates (less than 10% of available space occupied). I decided to remove these buildings from consideration, on the theory that these buildings might have something weird going on with them, and could potentially distort the analysis. Once I scrubbed these low-occupancy buildings from the data set, 
+#I looked at the green buildings and non-green buildings separately. 
+
+
+#i think it's fine to remove these buildings. there are 215 out of 8k
+
+low_occupancy_mask2 = green2$leasing_rate < 10
+low_occ = green2[low_occupancy_mask2,]
+
+median_low_occ = median(low_occ$Rent)
+mean_low_occ = mean(low_occ$Rent)
+hist(low_occ$Rent, 40, main="Low Occupancy Rent", xlab='Rent')
+axis(4,at=seq(0,60,by=10), las=1,tick=FALSE)
+abline(v=mean_low_occ, col='red')
+abline(v=median_low_occ, col='blue')
+mean(low_occ$Rent)
+median(low_occ$Rent)
+green$green_rating = as.factor(green$green_rating)
+green$Energystar = as.factor(green$Energystar)
+green$LEED = as.factor(green$LEED)
+green$class_a = as.factor(green$class_a)
+green$class_b = as.factor(green$class_b)
+green$renovated = as.factor(green$renovated)
+green$net = as.factor(green$net)
+green$amenities = as.factor(green$amenities)
+green$cluster = as.factor(green$cluster)
+
+#I looked at the green buildings and non-green buildings separately. 
 
 # Extract the buildings with green ratings
 green_only = subset(green, green_rating==1)
 dim(green_only)
+summary(green_only)
 
-# Not a normal distribution at all
-hist(green_only$Rent, 25)
-mean(green_only$Rent)
-
-# Normal-based confidence interval for the sample mean
-xbar = mean(green_only$Rent)
-sig_hat = sd(green_only$Rent)
-se_hat = sig_hat/sqrt(nrow(green_only))
-xbar + c(-1.96,1.96)*se_hat
-
-# Using R's lm function
-model1 = lm(Rent ~ 1, data=green_only)
-confint(model1, level=0.95)
+# define other side of the data set
+non_green = subset(green, green_rating !=1)
+dim(non_green)
+summary(non_green)
 
 
-### Compare with bootstrapping
 
-# a single bootstrapped sample (repeat a few times)
-green_only_boot = resample(green_only)
-mean(green_only_boot$Rent)
+#Examine analyst 2.60/sq ft premium comment
 
-# Get a feel for what it is in the green_only_boot object
-head(green_only_boot)
+#The median market rent in the non-green buildings was $25 per square foot per year, 
+#while the median market rent in the green buildings was $27.60 per square foot per year: 
+#about $2.60 more per square foot. (I used the median rather than the mean, because there were still some outliers in the data, and the median is a lot more robust to outliers.) 
 
-# Now repeat 2500 times
-boot1 = do(2500)*{
-  mean(resample(green_only)$Rent)
-}
-head(boot1)
-hist(boot1$result, 30)
-sd(boot1$result)
-
-# Extract the confidence interval from the bootstrapped samples
-confint(boot1, level=0.95)
-xbar + c(-1.96,1.96)*se_hat
+#the histogram data does show skewed data. the mean is much higher than the median. 
+#the histogram graphs plotted on top of each other shows the difference in the median price for the data sets. It appears that the Green buildings do have a premium. 
 
 
-####
-# Bootstrap the median
-####
+#Green histogram - skewed data (mean is higher than median)
+mean_green_only = mean(green_only$Rent)
+hist(green_only$Rent, 20,main="Green Rent", xlab='Rent')
+axis(4,at=seq(0,800,by=20), las=1,tick=FALSE)
+abline(v=mean_green_only, col='red')
+abline(v=median(green_only$Rent), col='blue')
 
-median(green_only$Rent)
-# Now repeat 2500 times
-boot2 = do(2500)*{
-  median(resample(green_only)$Rent)
-}
-head(boot2)
-
-# Ugly!
-hist(boot2$result, 30)
-
-# But we still get a confidence interval
-confint(boot2)
+# non_green histogram- skewed data (mean is higher than median)
+mean_non_green = mean(non_green$Rent)
+hist(non_green$Rent, 100, main="Non Green Rent", xlab='Rent')
+axis(4,at=seq(0,800,by=60), las=1,tick=FALSE)
+abline(v=mean_non_green, col='red')
+abline(v=median(non_green$Rent), col='blue')
 
 
 
 
+#plot histograms on top of each other. 
+mybreaks = seq(0, 60, by=2)
+par(mfrow=c(1,1), mar=c(3,0,1,3), mgp=c(2,1,0))
+hist(green_only$Rent[green_only$Rent < 60], breaks=mybreaks, xlab="Green vs Non Green", main="", border="darkgrey", col="grey", axes=FALSE, ylim=c(0, 1500))
+abline(v=median(green_only$Rent),col ='darkgrey')
+
+hist(non_green$Rent[non_green$Rent < 60],breaks=mybreaks,add=TRUE, border=rgb(0,100,0,100,maxColorValue=255), col= rgb(0,100,0,50,maxColorValue=255))
+abline(v=median(non_green$Rent),col =rgb(0,100,0,50,maxColorValue=255))
+axis(4,at=seq(0,800,by=60), las=1,tick=FALSE)
+axis(1,pos=0)
+
+
+text(5, 730, "Non Green Median", pos=4, font=2)
+text(29, 730, "Green Only Median", pos=4, font=2)
+
+
+
+
+
+
+
+#examine cost benefit analysis 
+
+#Because our building would be 250,000 square feet, this would translate into an additional $250000 x 2.6 = $650000 of extra revenue per year if we build the green building.
+# Our expected baseline construction costs are $100 million, with a 5% expected premium for green certification. Thus we should expect to spend an extra $5 million on the green building. 
+
+#Based on the extra revenue we would make, we would recuperate these costs in $5000000/650000 = 7.7 years. 
+#Even if our occupancy rate were only 90%, we would still recuperate the costs in a little over 8 years. 
+#Thus from year 9 onwards, we would be making an extra $650,000 per year in profit. 
+#Since the building will be earning rents for 30 years or more, it seems like a good financial move to build the green building.
+
+
+
+#let's try to see if premiums are consistent based on net and gross rents
+green_only_net = green_only[green_only$net==1,]
+non_green_net = non_green[non_green$net==1,]
+green_only_gross = green_only[green_only$net==0,]
+non_green_gross = non_green[non_green$net==0,]
+
+A = median(green_only_net$Rent)
+B = median(non_green_net$Rent)
+C = median(green_only_gross$Rent)
+D = median(non_green_gross$Rent)
+
+A
+B
+C
+D
+
+# it appears that utilities are driving the price difference between Green and Non Green Rental Rates based on the Gross Rental rates shown in this bar chart. 
+# the rental rates are pretty close between green and not green buildings when utilities are not included. 
+# The company may be able to receive a higher premium than previously thought. The net rents dragged the overall median rentals closer together.
+Type_Building <- c('Green Only - Net','Non-Green Net','Green Only - Gross', 'Non Green - Gross')
+Median_building <- c(A, B, C,D)
+
+Building_plot <- data.frame(Type_Building, Median_building)
+
+# 
+# ggplot(Building_plot, aes(x = Building_plot$Type_Building, y = Building_plot$Median_building)) +
+#   geom_bar(stat = "identity") +
+#   geom_text(aes(label = format(Building_plot$Median_building, digits = 4), y = 0.7))
+
+
+posbar = barplot(Building_plot$Median_building, 
+        names.arg=Building_plot$Type_Building,
+        col = 'red',
+        axisnames = TRUE,
+        axes = TRUE,
+        beside = TRUE,
+        cex.names=0.6,
+        ylim = c(0,35))
+text(y=Building_plot$Median_building, x=posbar, pos=3,labels=Building_plot$Median_building)
+
+#dev.off()
+
+
+#### let's examine just buildings with over 90% occupancy to make sure that the premium is consistent despite occupancy rates. 
+#occupancy rate could be considered a proxy for how in demand a building is, so I wondered if it was possible that the premium could be higher. 
+
+green_only_net_90 = green_only_net[green_only_net$leasing_rate>89,]
+non_green_net_90 = non_green_net[non_green_net$leasing_rate>89,]
+green_only_gross_90 = green_only_gross[green_only_gross$leasing_rate>89,]
+non_green_gross_90 = non_green_gross[non_green_gross$leasing_rate>89,]
+
+A_90 = median(green_only_net_90$Rent)
+B_90 = median(non_green_net_90$Rent)
+C_90 = median(green_only_gross_90$Rent)
+D_90 = median(non_green_gross_90$Rent)
+
+A_90
+B_90
+C_90
+D_90
+
+Type_Building_90 <- c('Green Only - Net >89','Non-Green Net >89','Green Only - Gross >89', 'Non Green - Gross >89')
+Median_building_90 <- c(A_90, B_90, C_90,D_90)
+
+Building_plot_90 <- data.frame(Type_Building_90, Median_building_90)
+
+
+posbar_90 = barplot(Building_plot_90$Median_building_90, 
+                 names.arg=Building_plot_90$Type_Building_90,
+                 col = 'red',
+                 axisnames = TRUE,
+                 axes = TRUE,
+                 beside = TRUE,
+                 cex.names=0.6,
+                 ylim = c(0,35))
+text(y=Building_plot$Median_building, x=posbar_90, pos=3,labels=Building_plot$Median_building)
+
+# dev.off()
+
+
+
+#let's view the correlation of the matriz to determine if there are any other relationships worth noting. 
+
+#obvious correlations exist between Size and Stories, # of Cooling days and Gas costs, and # of heating days and electricity costs. 
+#cold places require more gas to heat buildings and warm places require more electricity to cool the building. 
+#As far as our target variable, Rent, the main correlation driver is Cluster Rent, which is not surprising given that field is based on buildings that sit geographically close to each other.
+
+green_numeric = green[,c("size",              
+                         "Rent",              
+                         "leasing_rate",     
+                         "stories",           
+                         "age",               
+                         "cd_total_07",      
+                         "hd_total07",       
+                         "total_dd_07",       
+                         "Precipitation",     
+                         "Gas_Costs",         
+                         "Electricity_Costs", 
+                         "cluster_rent")]
+
+head(green_numeric,10)
+matrixxx = cor(green_numeric)
+round(matrixxx, 2)
+corrplot(matrixxx)
+head(green_numeric,5)
+
+colnames(green)
+
+
+
+
+
+bwplot(green$Rent ~ green_rating, data=green, main="Rent by Green Rating")
+bwplot(green$Rent ~ Energystar, data=green, main="Rent by Energy")
+bwplot(green$Rent ~ LEED, data=green, main="Rent by LEED")
+bwplot(green$Rent ~ class_a, data=green, main="Rent by class_a")
+bwplot(green$Rent ~ class_b, data=green, main="Rent by class_b")
+bwplot(green$Rent ~ renovated, data=green, main="Rent by renovation")
+bwplot(green$Rent ~ net, data=green, main="Rent by net")
+bwplot(green$Rent ~ amenities, data=green, main="Rent by amenities")
+
+bwplot(green$Rent ~ cluster, data=green, main="Rent by Green Rating")
+
+
+
+
+#explore class a vs class b
+
+
+mask1 = (green$class_a ==1)
+mask2 = (green$class_b ==1)
+
+
+
+dev.off()
+
+hist(green$Rent[mask2], breaks=80, xlab="class a vs class b", main="", border=rgb(0,100,0,100,maxColorValue=255), col= rgb(0,100,0,50,maxColorValue=255),ylim=c(0, 400))
+hist(green$Rent[mask1], breaks = 200, add=TRUE,, border="darkgrey", col="grey", axes=FALSE, ylim=c(0, 800))
+abline(v=median(green$Rent[mask1]),col ='darkgrey')
+abline(v=median(green$Rent[mask2]),col =rgb(0,100,0,50,maxColorValue=255))
+axis(4,at=seq(0,840,by=60), las=1,tick=FALSE)
+# axis(1,pos=0)
+text(-5, 360, "class b", pos=4, font=2)
+text(33, 360, "class a", pos=4, font=2)
+
+
+
+
+mask1 = (green_only$class_a ==1)
+mask2 = (non_green$class_a ==1)
+mask3 = (green_only$class_b ==1)
+mask4 = (non_green$class_b ==1)
+
+
+
+median(green_only$Rent[mask1])
+median(non_green$Rent[mask2])
+median(green_only$Rent[mask3])
+median(non_green$Rent[mask4])
+
+Type_Building2 <- c('Green Only - Class a','Non-Green - class a','Green Only - class b', 'Non Green - class b')
+Median_building2 <- c(A, B, C,D)
+
+Building_plot2 <- data.frame(Type_Building2, Median_building2)
+
+# 
+# ggplot(Building_plot, aes(x = Building_plot$Type_Building, y = Building_plot$Median_building)) +
+#   geom_bar(stat = "identity") +
+#   geom_text(aes(label = format(Building_plot$Median_building, digits = 4), y = 0.7))
+
+
+posbar = barplot(Building_plot2$Median_building2, 
+                 names.arg=Building_plot2$Type_Building2,
+                 col = 'red',
+                 axisnames = TRUE,
+                 axes = TRUE,
+                 beside = TRUE,
+                 cex.names=0.6,
+                 ylim = c(0,35))
+text(y=Building_plot2$Median_building2, x=posbar, pos=3,labels=Building_plot2$Median_building2)
+
+dev.off()
+
+#explore clusters
+# Visually you can see that green buildings charge higher rent for each cluster. 
+#The premium is about 2.48
+
+library(dplyr)
+library(tidyr)     
+
+x = green %>% 
+  group_by(cluster, green_rating) %>% 
+  summarise(median(Rent))
+colnames(x)
+cluster_green_only = x[x$green_rating==1,]
+cluster_non_green = x[x$green_rating==0,]
+
+premium = median(cluster_green_only$`median(Rent)`) - median(cluster_non_green$`median(Rent)`)
+plot(x$cluster,x$`median(Rent)`,type = 'p')
+points(x$cluster[x$green_rating==1],x$`median(Rent)`[x$green_rating==1],col=4,pch=1)
+points(x$cluster[x$green_rating==0],x$`median(Rent)`[x$green_rating==0],col=3,pch=1)
+premium
+
+
+#Final Conclusion
+
+#Based on the fact that the premium is verified through multiple analyses, i would recommend pushing forward with the project. 
+#this is not an exhaustive analysis and there could be other factors at work, but i have not found anything that rejects the Analysts' claims. 
 
 
 
