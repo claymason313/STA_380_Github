@@ -1,0 +1,863 @@
+---
+title: "STA 380 HW 2 - Clay Mason"
+author: "Clay Mason"
+date: "8/20/2018"
+output: html_document
+---
+# STA 380, Part 2: Exercises 2
+## Problem 1 ** Austin Airport **
+
+Your task is to create a figure, or set of related figures, that tell an interesting story about flights into and out of Austin. You can annotate the figure and briefly describe it, but strive to make it as stand-alone as possible. It shouldn't need many, many paragraphs to convey its meaning. Rather, the figure should speak for itself as far as possible. For example, you might consider one of the following questions:
+
+What is the best time of day to fly to minimize delays?
+What is the best time of year to fly to minimize delays?
+How do patterns of flights to different destinations or parts of the country change over the course of the year?
+What are the bad airports to fly to?
+But anything interesting will fly. If you want to try your hand at mapping or looking at geography, you can cross-reference the airport codes here: https://github.com/datasets/airport-codes. Combine this with a mapping package like ggmap, and you should have lots of possibilities!
+
+```{r}
+
+# Import library
+library(ggplot2)
+rm(list=ls())
+
+ABIA = read.csv("/Users/claytonmason/GitHub/STA_380_Clay/Data/ABIA.csv")
+
+#head(ABIA, 5)
+
+
+```
+I added a column for pulling the Hour of the Day, a Unique flight identifier for counting, and a binary delayed flight column. 
+I used this to also create a delayed flight only dataframe to make some analytics a little easier. 
+
+I also created an outbound-only and inbound-only data frame, but I didn't find this to be as helpful as I wanted. Most of the statistics were summarized line by line, so there was just one line of noise that i was trying to avoid. 
+
+
+
+
+```{r}
+# Departure time - Extract Hour of Day
+ABIA$Departure_hour = as.numeric(substr(ABIA$DepTime, 1, nchar(ABIA$DepTime)-2))
+#ABIA$Departure_hour
+
+#unique flights column
+ABIA$unique_flights <- paste(ABIA$UniqueCarrier,ABIA$FlightNum, ABIA$Month, ABIA$DayofMonth)
+
+
+# Create delay column
+ABIA$Delay <- ifelse(ABIA$ArrDelay > 0, 1, ifelse(ABIA$ArrDelay <= 0, "0", ifelse(ABIA$ArrDelay <= NA, NA,NA)))
+#ABIA$Delay
+ABIA$Delay <- as.numeric(as.character(ABIA$Delay))
+
+#view null data
+#colSums(!is.na(ABIA))
+
+No_delay = sum(!is.na(ABIA$Delay[ABIA$Delay==0]))
+Delay2 = sum(!is.na(ABIA$Delay[ABIA$Delay==1]))
+Delay_NA = sum(is.na(ABIA$Delay))
+#No_delay
+#Delay2
+#Delay_NA
+
+Total_Delay_Col = No_delay + Delay2 + Delay_NA
+#Total_Delay_Col
+
+```
+
+
+**42.7% of flights were delayed ** base on the stringent criteria of anything more than zero minutes past the anticipated time of arrival. 
+
+```{r}
+
+
+#42.7% of flights are delayed
+Delay2 / Total_Delay_Col
+
+#new delay data frame
+ABIA_delay_df = ABIA[ABIA$Delay==1,]
+#ABIA_delay_df
+
+#new Outbound df
+ABIA_Outbound_df = ABIA[ABIA$Dest!="AUS",]
+ABIA_Outbound_df = ABIA_Outbound_df[ABIA_Outbound_df$Delay!="NA",]
+#ABIA_Outbound_df
+
+#new Inbound df
+ABIA_Inbound_df = ABIA[ABIA$Dest=="AUS",]
+ABIA_Inbound_df = ABIA_Inbound_df[ABIA_Inbound_df$Delay!="NA",]
+#ABIA_Inbound_df
+
+
+```
+I calculated the average delay time by carrier and plotted this into a bar chart
+
+```{r}
+
+#average delay by carrier
+Carrier_mean = aggregate(ABIA_delay_df$ArrDelay, by=list(ABIA_delay_df$UniqueCarrier), FUN=mean)
+Carrier_mean
+
+
+library(dplyr)
+ABIA %>%
+  group_by(UniqueCarrier) %>%
+  summarise(n_distinct(UniqueCarrier))
+
+
+
+#average delay by carrier - plot
+library(ggplot2)
+ggplot(ABIA_delay_df) + 
+  stat_summary(aes(x = UniqueCarrier, y = ArrDelay), 
+               fun.y = function(x) mean(x), 
+               geom = "bar")
+
+
+```
+I calculated the percentage of delays by carrier so that large carriers with more frequent flights would be more comparable to 
+smaller carriers. This still isn't quite apples to apples as there would still be increased complexities with a larger carrier that could result in delays. 
+
+It would be preferable to identify when the greatest odds of delays are, which requires the transformation I mentioned. 
+
+```{r}
+
+#% of delays by carrier - plot
+library(ggplot2)
+ggplot(ABIA) + 
+  stat_summary(aes(x = UniqueCarrier, y = Delay), 
+               fun.y = function(x) sum(x)/length(x), 
+               geom = "bar")
+
+
+```
+I calculated the percentage of delays by origin (where flights are coming from before they land in Austin) and plotted it into a chart that you cannot read. I then just published it to a table so that you can read it and gain some insight. 
+
+```{r}
+
+#% of delays by origin
+library(ggplot2)
+ggplot(ABIA) + 
+  stat_summary(aes(x = Origin, y = Delay), 
+               fun.y = function(x) sum(x)/length(x), 
+               geom = "bar")
+
+
+#% of delays by origin
+library(ggplot2)
+ggplot(ABIA) + 
+  stat_summary(aes(x = Dest, y = Delay), 
+               fun.y = function(x) sum(x)/length(x), 
+               geom = "bar")
+
+
+```
+I then did a similar method for Destination instead of Origin
+
+```{r}
+
+
+
+#number of flights by Destination
+#install.packages("data.table")
+library(data.table)
+DT2 <- data.table(ABIA_Outbound_df)
+DT2[, .(outbound_flights = length(unique(unique_flights)),delays = sum(Delay), delay_percent = sum(Delay)/length(unique(unique_flights))), by = Dest]
+
+#number of flights by Origin
+#install.packages("data.table")
+library(data.table)
+DT <- data.table(ABIA_Inbound_df)
+DT[, .(inbound_flights = length(unique(unique_flights)),delays = sum(Delay), delay_percent = sum(Delay)/length(unique(unique_flights))), by = Origin]
+
+
+```
+I plotted the number of delays by the hour of the day. I should have done this as a percentage to normalize peak flying hours with the rest of the day. Again, we are trying to find when the highest odds of delays are. 
+
+I also plotted the mean delay by the hour of the day, and it seems like there is a bias in the data. The later in the day (the longer the delay that's already occurred), the longer the mean delay time. I don't think this statistic is revealing. 
+
+I also plotted delays by month with December (holidays) having a large amount of delays. 
+
+```{r}
+
+#count of delays by hour
+ggplot(data = ABIA_delay_df, aes(ABIA_delay_df$Departure_hour, ABIA_delay_df$Delay<-1 )) + stat_summary(fun.y = sum, geom = "bar") + xlim(0,24) + scale_y_continuous("sum of delays")
+
+
+
+#mean arrival delays by hour of the day
+ggplot(data = ABIA_delay_df, aes(ABIA_delay_df$Departure_hour, ABIA_delay_df$ArrDelay)) + stat_summary(fun.y = mean, geom = "bar") + xlim(0,24) + scale_y_continuous("mean of delays")
+
+
+
+
+# Plot average arrival delays by day of week
+ggplot(data = ABIA_delay_df, aes(ABIA_delay_df$DayOfWeek, ABIA_delay_df$ArrDelay)) + stat_summary(fun.y = mean, geom = "bar")  + xlim(0,8) + scale_y_continuous("Mean Arrival Delay (mins)")
+
+
+
+# Plot average arrival delays by month
+ggplot(data = ABIA_delay_df, aes(ABIA_delay_df$Month, ABIA_delay_df$ArrDelay)) + stat_summary(fun.y = mean, geom = "bar")
+```
+## Problem 2 ** Author Attribution **
+
+Revisit the Reuters C50 corpus that we explored in class. Your task is to build two separate models (using any combination of tools you see fit) for predicting the author of an article on the basis of that article's textual content. Describe clearly what models you are using, how you constructed features, and so forth. Yes, this is a supervised learning task, but it potentially draws on a lot of what you know about unsupervised learning, since constructing features for a document might involve dimensionality reduction.
+
+In the C50train directory, you have ~50 articles from each of 50 different authors (one author per directory). Use this training data (and this data alone) to build the two models. Then apply your model to the articles by the same authors in the C50test directory, which is about the same size as the training set. How well do your models do at predicting the author identities in this out-of-sample setting? Are there any sets of authors whose articles seem difficult to distinguish from one another? Which model do you prefer?
+
+Note: you will need to figure out a way to deal with words in the test set that you never saw in the training set. This is a nontrivial aspect of the modeling exercise. You might, for example, consider adding a pseudo-word to the training set vocabulary, corresponding to "word not seen before," and add a pseudo-count to it so it doesn't look like these out-of-vocabulary words have zero probability on the testing set.
+
+
+```{r}
+rm(list=ls())
+## The tm library and related plugins comprise R's most popular text-mining stack.
+## See http://cran.r-project.org/web/packages/tm/vignettes/tm.pdf
+
+
+
+## tm has many "reader" functions.  Each one has
+## arguments elem, language, id
+## (see ?readPlain, ?readPDF, ?readXML, etc)
+## This wraps another function around readPlain to read
+## plain text documents in English.
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+# Import libraries
+library(tm)
+library(SnowballC)
+library(plyr)
+library(tm) 
+library(magrittr)
+library(slam)
+library(proxy)
+library(glmnet)
+library(nnet)
+
+# single corpus
+## "globbing" = expanding wild cards in filename paths
+setwd("/Users/claytonmason/GitHub/STA_380_Clay/Data")
+file_list_import_train = Sys.glob('../data/ReutersC50/C50train/*')
+
+# Loop through to get the files/authors
+file_list_train = c()
+labels_train = c()
+for(author_train in file_list_import_train) {
+  author_name_train = substring(author_train, first=29)
+  files_to_add_train = Sys.glob(paste0(author_train, '/*.txt'))
+  file_list_train = append(file_list_train, files_to_add_train)
+  labels_train = append(labels_train, rep(author_name_train, length(files_to_add_train)))
+}
+#file_list_train
+
+# Remove .txt extension from the file name
+all_docs_train = lapply(file_list_train, readerPlain) 
+names(all_docs_train) = file_list_train
+names(all_docs_train) = sub('.txt', '', names(all_docs_train))
+
+## once you have documents in a vector, you 
+## create a text mining 'corpus' with:
+my_corpus_train = Corpus(VectorSource(all_docs_train))
+
+#ugh - https://stackoverflow.com/questions/40462805/names-function-in-r-not-working-as-expected
+#https://stackoverflow.com/questions/10566473/names-attribute-must-be-the-same-length-as-the-vector
+length(my_corpus_train)
+length(labels_train)
+
+#names(my_corpus_train) = labels_train
+#labels_train
+
+
+```
+**Naive Bayes model **
+**Data Import and Cleaning**
+I pulled in the files with a For Loop, but i ran into an issue with the names function. This was the beginning of my problems. I was running into this same issue regardless of how I was trying to apply the names. 
+
+I calculated the length of the vector used for the naming convention at 2500 rows, but it kept saying i only had three items in the list. As previously mentioned, I found some other similar code on the internet and also the tutorial exercise, but I kept receiving the same error below.
+
+"Error in names(my_corpus_train) = labels_train : 
+  'names' attribute [2500] must be the same length as the vector [3]"
+
+I made everything lowercase, removed numbers, removed punctuation, removed extra white spaces and used the "SMART" stop words tool . 
+Everything was similar to the example exercise that was provided to us. 
+
+I then created a Doc term matrix + the sparse matrix with the clean data.
+
+I looked through a few of the items and found some frequent terms for a sanity check. 
+
+
+I dropped sparse words based on a threshold of 94% (count of 0 in 94% of docs), and then I created a new matrix. 
+
+
+```{r}
+## Some pre-processing/tokenization steps.
+## tm_map just maps some function to every document in the corpus
+my_corpus_train = tm_map(my_corpus_train, content_transformer(tolower)) # make everything lowercase
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeNumbers)) # remove numbers
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_train = tm_map(my_corpus_train, content_transformer(stripWhitespace)) # remove excess white-space
+
+## Remove stopwords.  Always be careful with this: one person's trash is another one's treasure.
+#stopwords("en")
+#stopwords("SMART")
+#?stopwords
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeWords), stopwords("SMART")) # remove stop words
+my_corpus_train = tm_map(my_corpus_train, stemDocument) # combine stem words
+
+
+
+## create a doc-term-matrix
+DTM_train = DocumentTermMatrix(my_corpus_train)
+DTM_train # some basic summary statistics
+
+# a special kind of sparse matrix format
+class(DTM_train)
+
+## You can inspect its entries...
+inspect(DTM_train[1:10,1:20])
+
+## ...find words with greater than a min count...
+#findFreqTerms(DTM_train, 100)
+
+
+
+```
+I chose to inspect the word "fed" because I figured this would likely be tied to some other words. This wasn't really necessary for the exercise, but more for practicing the function. 
+
+
+
+```{r}
+## ...or find words whose count correlates with a specified word.
+findAssocs(DTM_train, "fed", .5)
+
+## Finally, drop those terms that only occur in one or two documents
+## This is a common step: the noise of the "long tail" (rare terms)
+##	can be huge, and there is nothing to learn if a term occured once.
+## Below removes those terms that have count 0 in >94% of docs.  
+# Remove sparse terms
+DTM_train = removeSparseTerms(DTM_train, 0.94)
+#DTM_train
+
+
+
+
+# Create a new matrix
+X_train = as.matrix(DTM_train)
+#X_train
+
+```
+
+I repeated the same steps for the test data. 
+
+As the instructions mentioned, I will need to compare the words between the two sets of data and account for missing words in the training data. 
+
+
+
+```{r}
+
+
+########### repeat steps for test data
+
+file_list_import_test = Sys.glob('../data/ReutersC50/C50test/*')
+
+#  get the files and the authors
+file_list_test = c()
+labels_test = c()
+for(author_test in file_list_import_test) {
+  author_name_test = substring(author_test, first=29)
+  files_to_add_test = Sys.glob(paste0(author_test, '/*.txt'))
+  file_list_test = append(file_list_test, files_to_add_test)
+  labels_test = append(labels_test, rep(author_name_test, length(files_to_add_test)))
+}
+#file_list_test
+
+# Read in file_list and remove .txt from the file name
+all_docs_test = lapply(file_list_test, readerPlain) 
+names(all_docs_test) = file_list_test
+names(all_docs_test) = sub('.txt', '', names(all_docs_test))
+#all_docs_test
+
+## once you have documents in a vector, you 
+## create a text mining 'corpus' with:
+my_corpus_test = Corpus(VectorSource(all_docs_test))
+
+#ugh - https://stackoverflow.com/questions/40462805/names-function-in-r-not-working-as-expected
+#https://stackoverflow.com/questions/10566473/names-attribute-must-be-the-same-length-as-the-vector
+length(my_corpus_test)
+length(labels_test)
+#names(my_corpus_test) = labels_test
+
+
+## Some pre-processing/tokenization steps.
+## tm_map just maps some function to every document in the corpus
+my_corpus_test = tm_map(my_corpus_test, content_transformer(tolower)) # make everything lowercase
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeNumbers)) # remove numbers
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_test = tm_map(my_corpus_test, content_transformer(stripWhitespace)) # remove excess white-space
+## Remove stopwords.  Always be careful with this: one person's trash is another one's treasure.
+#stopwords("en")
+#stopwords("SMART")
+#?stopwords
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeWords), stopwords("SMART")) # remove stop words
+my_corpus_test = tm_map(my_corpus_test, stemDocument) # combine stem words
+
+
+## create a doc-term-matrix
+DTM_test = DocumentTermMatrix(my_corpus_test)
+DTM_test # some basic summary statistics
+
+# a special kind of sparse matrix format
+class(DTM_test)
+
+## You can inspect its entries...
+inspect(DTM_test[1:10,1:20])
+
+## ...find words with greater than a min count...
+#findFreqTerms(DTM_test, 50)
+
+## ...or find words whose count correlates with a specified word.
+findAssocs(DTM_test, "fed", .5)
+
+
+## Finally, drop those terms that only occur in one or two documents
+## This is a common step: the noise of the "long tail" (rare terms)
+##	can be huge, and there is nothing to learn if a term occured once.
+## Below removes those terms that have count 0 in >95% of docs.  
+# Remove sparse terms
+DTM_test = removeSparseTerms(DTM_test, 0.94)
+#DTM_test
+
+
+# Create a dense matrix
+X_test = as.matrix(DTM_test)
+#X_test
+
+
+```
+**dealing with extra/missing words between the datasets**
+In this next section, I grab all of the words not in the test set that are in the training set, and vice versa. 
+I will drop the extra words from the test set and add missing words to the test set to ensure my matrices are the same size later for the multiplication. 
+
+
+
+```{r}
+
+# Pull training set words
+X_words = colnames(X_train)
+#X_words
+
+
+# Pull test set words
+X_test_words = colnames(X_test)
+#X_test_words
+
+# initialize the vectors that will add the words to the matrices
+test_add = vector(length=0)
+test_drop = vector(length=0)
+
+# Add words not in the train to the vector test_drop
+for (test_word in X_test_words) {
+  if (!test_word %in% X_words) {
+    test_drop <- c(test_drop, test_word)
+  }
+}
+#test_drop
+
+
+
+# Add words not in test set to the vector test_add
+for (word in X_words) {
+  if (!word %in% X_test_words) {
+    test_add <- c(test_add, word)
+  }
+}
+#test_add
+
+
+
+# initialize the matrix insert with a bunch of zeroes. 
+
+zero <- matrix(0, nrow = nrow(X_train), ncol=length(test_add))
+
+# Name the columns 
+colnames(zero) <- test_add
+
+# Add the blank matrix insert
+X2_test = cbind(X_test, zero)
+
+
+# sort the columns to match the train index
+X2_test = X2_test[,order(colnames(X2_test))]
+#X2_test
+
+# Drop the words from the test_drop vector so that the matrices will match. 
+X2_test = X2_test[,!colnames(X2_test) %in% test_drop]
+
+#X2_test
+
+
+
+
+# Create a dense matrix
+X = as.matrix(DTM_train)
+
+
+
+```
+After matching the matrices up, I was ready to start applying values to the words. I used a smoothing factor, which is just the 1/2500 or the lengtho of the matrix. 
+
+My labels/name issue will come up again because I needed those values to properply apply values to each author. 
+
+We transformed the values with log and we transposed the matrix so that we could multiply with the probability vector. 
+We added the prediction column based on the max values of this multiplication, but I couldn't figure out how to check the accuracy of the prediction after adding it to the column. My index for each row was just a number instead of the author names, so I didn't have the actual values to compare to my prediction column. 
+
+This resulted in a zero accuracy for each row. 
+
+Had I been able to return a 1 for correct predictions and 0 for incorrect predictions. I could have taken the average of this column to get the overall model accuracy, and then i could have taken it a step further to analyze the accuracy at the author level.  
+
+
+
+
+
+
+```{r}
+# Calculate the smoothing factor
+smooth_count = 1/nrow(X)
+#nrow(X)
+#smooth_count
+
+#colnames(X)
+#labels_train
+
+
+#ugh I believe this is where my issue lies
+# Add the smoothing factor and aggregate the word counts + smoothing factor for each author
+by_word_wc = rowsum(X + smooth_count, labels_train)
+#by_word_wc
+#smooth_count
+#X
+
+
+# Sum the word counts + smoothing factor for each word for each author
+total_wc = rowSums(by_word_wc)
+#total_wc
+
+
+#  multinomial probability vector
+w = by_word_wc / total_wc
+#w
+
+# Log the vector for easier interpretability
+w = log(w)
+#w
+# Set X2 equal to the multinomial probability vector w
+X2 = w
+
+
+# Transpose the multinomial probability vector for matrix multiplication
+X2 = t(X2)
+#X2
+
+# Multiply the test matrix by X2
+log_prob = X2_test %*% X2
+colnames(log_prob)
+
+# Get the prediction by return the column name of the max value for each document 
+predict = colnames(log_prob)[max.col(log_prob)]
+#predict
+
+# Add the prediction the the matrix
+log_prob = cbind(log_prob, predict)
+#head(log_prob,10)
+#rownames(log_prob) #these are numbers. I need 
+#colnames(log_prob)
+#log_prob[,51]
+
+
+### i cannot figure out how to check the accuracy of my predictions
+# Create a column that checks the prediction against the actual
+
+accurate = as.integer(rownames(log_prob) == log_prob[,51])
+#accurate
+
+
+```
+**PCA**
+The Principal Component Analysis was less of a success compared to my attempt at Naive Bayes, which I felt like I got all the way until the very end, which unfortunately is where it matters most. 
+
+The PCA i was able to replicate the tutorial exercise, which only looked at the Simon author files. 
+
+I've had to start over too many times now after issues with non-conformable argurments when trying to start my regression. 
+
+Below is just what i was able to successfully perform. I cut my failed attempts. I had not started on this problem at the time of the office hours last Friday. I had only made progress on problem #1. 
+```{}
+
+###PCA
+
+# construct TF IDF weights
+tfidf_train = weightTfIdf(DTM_train)
+
+####
+# Compare documents
+####
+
+inspect(tfidf_train[1,])
+inspect(tfidf_train[2,])
+inspect(tfidf_train[3,])
+
+# could go back to the raw corpus
+content(my_corpus_train[[1]])
+content(my_corpus_train[[2]])
+content(my_corpus_train[[3]])
+
+# cosine similarity
+i = 1
+j = 3
+sum(tfidf_train[i,] * (tfidf_train[j,]))/(sqrt(sum(tfidf_train[i,]^2)) * sqrt(sum(tfidf_train[j,]^2)))
+
+
+# the full set of cosine similarities
+# two helper functions that use some linear algebra for the calculations
+cosine_sim_docs = function(dtm) {
+  crossprod_simple_triplet_matrix(t(dtm))/(sqrt(col_sums(t(dtm)^2) %*% t(col_sums(t(dtm)^2))))
+}
+
+# use the function to compute pairwise cosine similarity for all documents
+cosine_sim_mat = cosine_sim_docs(tfidf_train)
+# Now consider a query document
+content(my_corpus_train[[17]])
+cosine_sim_mat[17,]
+
+# 
+sort(cosine_sim_mat[18,], decreasing=TRUE)
+content(my_corpus_train[[18]])
+content(my_corpus_train[[19]])
+
+#####
+# Cluster documents
+#####
+
+# define the cosine distance
+cosine_dist_mat = proxy::dist(as.matrix(tfidf_train), method='cosine')
+tree_simon = hclust(cosine_dist_mat)
+plot(tree_simon)
+clust5 = cutree(tree_simon, k=5)
+
+# inspect the clusters
+which(clust5 == 1)
+content(my_corpus_train[[1]])
+content(my_corpus_train[[4]])
+content(my_corpus_train[[5]])
+
+
+
+####
+# Dimensionality reduction
+####
+
+# Now PCA on term frequencies
+X = as.matrix(tfidf_train)
+summary(colSums(X))
+scrub_cols = which(colSums(X) == 0)
+X = X[,-scrub_cols]
+
+pca_train = prcomp(X, scale=TRUE)
+plot(pca_train) 
+
+# Look at the loadings
+pca_train$rotation[order(abs(pca_train$rotation[,1]),decreasing=TRUE),1][1:25]
+pca_train$rotation[order(abs(pca_train$rotation[,2]),decreasing=TRUE),2][1:25]
+
+
+## Look at the first two PCs..
+# We've now turned each document into a single pair of numbers -- massive dimensionality reduction
+pca_train$x[,1:2]
+
+plot(pca_train$x[,1:2], xlab="PCA 1 direction", ylab="PCA 2 direction", bty="n",
+     type='n')
+text(pca_train$x[,1:2], labels = 1:length(my_corpus_train), cex=0.7)
+
+
+
+# Conclusion: even just these two-number summaries still preserve a lot of information
+
+
+# Now look at the word view
+# 5-dimensional word vectors
+word_vectors = pca_train$rotation[,1:5]
+
+word_vectors[982,]
+
+d_mat = dist(word_vectors)
+
+
+
+
+
+
+
+
+###################
+# Now PCA on term frequencies
+X_test2 = as.matrix(DTM_test)
+X_test2 = X_test2/rowSums(X_test2)
+
+
+
+pca_X_test2 = prcomp(X_test2, scale=TRUE)
+plot(pca_X_test2)
+
+# Look at the loadings
+pca_X_test2$rotation[order(abs(pca_X_test2$rotation[,1]),decreasing=TRUE),1][1:25]
+pca_X_test2$rotation[order(abs(pca_X_test2$rotation[,2]),decreasing=TRUE),2][1:25]
+
+
+## Plot the first two PCs..
+plot(pca_X_test2$x[,1:2], xlab="PCA 1 direction", ylab="PCA 2 direction", bty="n",
+     type='n')
+text(pca_X_test2$x[,1:2], labels = 1:length(all_docs_test), cex=0.7)
+identify(pca_X_test2$x[,1:2], n=4)
+
+
+```
+
+
+
+
+
+## Problem 3 ** Groceries ** ##
+
+Revisit the notes on association rule mining, and walk through the R example on music playlists: playlists.R and playlists.csv. Then use the data on grocery purchases in groceries.txt and find some interesting association rules for these shopping baskets. The data file is a list of baskets: one row per basket, with multiple items per row separated by commas -- you'll have to cobble together a few utilities for processing this into the format expected by the "arules" package. Pick your own thresholds for lift and confidence; just be clear what these thresholds are and how you picked them. Do your discovered item sets make sense? Present your discoveries in an interesting and concise way.
+
+
+```{r}
+
+rm(list=ls())
+    
+library(arulesViz)
+library(arules)
+library(reshape2)
+library(plyr)
+#setwd("/Users/claytonmason/GitHub/STA_380_Clay/Data")
+```
+
+Association Rule Mining - find rules that will predict the occurrence of an item based on the occurrences of other items in the transaction
+ goal of association rule mining is to find all rules having
+– support greater than a􏰆 minsup threshold (s Fraction of transactions that contain both X and Y)
+– confidence greather than a 􏰆 minconf threshold (c = Measures how often items in Y appear in transactions that contain X)
+
+
+This analysis is useful for understanding consumer behavior. If we understand what products consumers frequently buy together, then we could suggest appealing marketing proposals. 
+
+Below, I will present findings with various support and confidence levels to see if there are any interesting trends. 
+```{}
+
+
+```
+There are 9,835 rows spanning across 169 grocery store items. 
+
+```{r}
+
+groceries = read.transactions("/Users/claytonmason/GitHub/STA_380_Clay/Data/groceries.txt", format="basket", sep=",")
+dim(groceries)
+
+#9,835 rows and 169 variables
+
+
+# #Cast this variable as a special arules transactions class
+groceries_transaction <- as(groceries, "transactions")
+
+```
+I first looked at the  apriori algo settings from the music example. 
+Support >= .01
+Confidence >= .5
+max length = 4
+
+After sorting by support, you can see that whole milk is the most commonly associated item for 7 of the top 10 items. Milk spoils quickly and is frequently purchased by consumers. Grocery stores strategically place milk in the far back of the store to promote cross selling of products on the way to purchase this product. 
+
+The 2 highest confidence items contatin other veggies in the rhs column paired with citrus fruit/root vegetables and tropical fruit/root vegetables. The confidence level was about .58 which means in 58 % of the transactions that include these items, then other vegetables are purchased as well. 
+
+I don't think this setting is particuarlly useful because of the reason i mentioned about the frequency of purchase with regards to milk. This top confidence table just shows that milk is purchased frequently regardless of the other items in the sets. 
+
+Lift is capped out around 3 and it is for the same veggie sets i previously mentioned. This is not to interesting to me and just implies that if people shop in this area of the grocery store, they are likely to buy from other closeby sections. 
+
+
+
+
+```{r}
+
+# Now run the 'apriori' algorithm
+# Look at rules with support > .01 & confidence >.5 & length(# of items) <= 4
+groceries_rules1 <- apriori(groceries_transaction, parameter=list(support=.01, confidence=.5, maxlen=4))
+
+
+#Top 10 Support
+top.support <- sort(groceries_rules1, decreasing = TRUE, na.last = NA, by = "support")
+inspect(sort(top.support)[1:10])
+
+#Top 10 Confidence
+top.confidence <- sort(groceries_rules1, decreasing = TRUE, na.last = NA, by = "confidence")
+inspect(head(top.confidence, 10))
+
+```
+#### more frequent purchase observation
+I next looked at more frequent purchases but lower confidence
+Support >= .02
+Confidence >= .2
+max length = 3
+
+I messed with max length a few different ways, but didn't find any meaninfgul findings, so I kept it low. 
+I increased the frequency requirement (support), but lowered the confidence interval. 
+
+This finding revealed that milk is often purchased by itself, which led to a lift of 1. Additionally, the support and confidence level were the same at .255. 
+
+If butter is bought, then milk is bought as well half of the time. 
+
+This modification from the first set of parameters didn't yield too much information. The eggs and milk combination also yielded a high confidence level, but this isn't surprising as it is common knowledge these items are replenished together. 
+
+```{r}
+
+# Look at rules with support > .02 & confidence >.2 & length(# of items) <= 3
+groceries_rules2 <- apriori(groceries_transaction, parameter=list(support=.02, confidence=.2, maxlen=4))
+
+#Top 10 Support
+top.support <- sort(groceries_rules2, decreasing = TRUE, na.last = NA, by = "support")
+inspect(sort(top.support)[1:10])
+
+#Top 10 Confidence
+top.confidence <- sort(groceries_rules2, decreasing = TRUE, na.last = NA, by = "confidence")
+inspect(head(top.confidence, 10))
+
+
+```
+#### infrequent purchase, but high confidence
+I next looked at very infrequent purchases, but high confidence. 
+Support >= .02
+Confidence >= .2
+max length = 3
+
+This setting yielded unusable results. After sorting for high confidence, i found single transactions with 100% confidence of sound storage medium being purchased along with a single item on 9 different occasions. 
+
+This type of information wouldn't be useful unless we looked at the full universe of this storage medium. We would have to know that this item was always purchased with one other item to find anything useful. 
+
+After sorting by the low support threshold, I noted a similar observation as earlier. Butter/yogurt, and whole milk for a high confidence data set. These items are sold in similar areas of the grocery store, but it could also mean that the Milk marketing strategy that promotes cross-selling is working. These items are relatively inexpensive and small, which could mean they are items that are getting added to a "quick milk run". 
+
+
+
+```{r}
+
+
+
+# Look at rules with support > .0001 & confidence >.6 & length(# of items) <= 4
+groceries_rules3 <- apriori(groceries_transaction, parameter=list(support=.0001, confidence=.6, maxlen=4))
+
+#Top 10 Support
+top.support <- sort(groceries_rules3, decreasing = TRUE, na.last = NA, by = "support")
+inspect(sort(top.support)[1:10])
+
+#Top 10 Confidence
+top.confidence <- sort(groceries_rules3, decreasing = TRUE, na.last = NA, by = "confidence")
+inspect(head(top.confidence, 10))
+
+```
+

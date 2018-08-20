@@ -196,7 +196,7 @@ about $2.60 more per square foot. (I used the median rather than the mean, becau
 **Clay:** the histogram data does show skewed data. the mean is much higher than the median. 
 the histogram graphs plotted on top of each other shows the difference in the median price for the data sets. It appears that the Green buildings do have a premium. 
 
-```{}
+```{r, fig.width=6, fig.height=2.5}
 
 #Green histogram - skewed data (mean is higher than median)
 mean_green_only = mean(green_only$Rent)
@@ -204,6 +204,8 @@ hist(green_only$Rent, 20,main="Green Rent", xlab='Rent')
 axis(4,at=seq(0,800,by=20), las=1,tick=FALSE)
 abline(v=mean_green_only, col='red')
 abline(v=median(green_only$Rent), col='blue')
+```
+
 
 # non_green histogram- skewed data (mean is higher than median)
 mean_non_green = mean(non_green$Rent)
